@@ -1,0 +1,107 @@
+# Edra
+
+> Svelte-first rich text editor components built on Tiptap, with headless and shadcn UI variants.
+
+## Identity
+
+- **Name**: edra
+- **Version**: 2.4.1 (analyzed)
+- **Language**: TypeScript + Svelte
+- **License**: MIT
+- **Install**: `npm i edra` (or `pnpm add edra`, `yarn add edra`, `bun add edra`)
+
+## What It Does
+
+Edra gives you prebuilt Svelte editor components around a configured Tiptap `Editor` instance. You use it when you want rich text editing (tables, media placeholders, slash commands, math, syntax-highlighted code blocks) without building node views and toolbar logic from scratch. The package exports two UI layers: `headless` (unstyled primitives) and `shadcn` (styled components). The core abstraction is: bind a Tiptap `Editor` instance to `EdraEditor`, then compose optional toolbar, bubble menu, drag handle, and custom file handlers.
+
+## When to Use / When NOT to Use
+
+**Use when**:
+- You are already on Svelte and want a Tiptap-based editor quickly.
+- You need both JSON content editing and markdown-aware behavior via Tiptap Markdown extension.
+- You need media placeholders (image/video/audio/iframe) plus custom upload/transform handlers.
+- You want customizable toolbar commands but do not want to wire command metadata manually.
+
+**Do not use when**:
+- You are not using Svelte (Edra components are Svelte-specific; use raw Tiptap for React/Vue).
+- You need a tiny editor with minimal dependencies (Edra bundles many extensions).
+- You need a backend CMS/workflow system; Edra is an editor UI/component library, not content storage.
+
+## Core Concepts (Know Before Using)
+
+- **`initEditor` factory (`src/lib/edra/editor.ts`)** — creates the base Tiptap `Editor` with default extension stack (StarterKit, lists, typography, tables, markdown, search/replace, etc.).
+- **`EdraEditor` component** — Svelte component that mounts editor, augments with node views (code, media, math, slash command), and binds `editor` + `content`.
+- **UI flavor modules** — `src/lib/edra/headless/index.ts` exports unstyled pieces; `src/lib/edra/shadcn/index.ts` exports styled equivalents plus ToC/drag-handle extras.
+- **Toolbar command registry** — `ToolBarCommands` is a grouped command map driving icons, click handlers, and active/clickable state for UI toolbars.
+- **File handling hooks** — `onFileSelect` and `onDropOrPaste` props let your app control upload/URL resolution before media nodes are inserted.
+- **Tiptap content lifecycle** — your app typically passes initial `content`, binds `editor`, and updates state using `onUpdate` with `editor.getJSON()`.
+
+## Primary Usage
+
+```svelte
+<script lang="ts">
+  import type { Content, Editor } from '@tiptap/core';
+  import { EdraEditor, EdraToolBar, EdraBubbleMenu } from 'edra/dist/edra/shadcn/index.js';
+
+  // Keep editor instance and content in component state.
+  let editor: Editor | undefined;
+  let content: Content = {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Start writing...' }] }]
+  };
+
+  // Every transaction can persist content to your store/API.
+  function onUpdate() {
+    content = editor?.getJSON() as Content;
+  }
+
+  // Optional: map local file selection to uploaded URL.
+  async function onFileSelect(localPath: string): Promise<string> {
+    // Replace with real upload; return final public URL consumed by media nodes.
+    return localPath;
+  }
+
+  async function onDropOrPaste(file: File): Promise<string> {
+    // Replace with upload function for drag/paste flows.
+    return URL.createObjectURL(file);
+  }
+</script>
+
+{#if editor}
+  <EdraToolBar {editor} />
+  <EdraBubbleMenu {editor} />
+{/if}
+
+<EdraEditor
+  bind:editor
+  {content}
+  {onUpdate}
+  {onFileSelect}
+  {onDropOrPaste}
+  editable={true}
+  autofocus={true}
+  class="h-[30rem] overflow-y-auto"
+/>
+```
+
+## Key Capabilities
+
+- Compose an editor UI quickly with `EdraEditor` + `EdraToolBar` + `EdraBubbleMenu` from either `headless` or `shadcn` exports.
+- Insert and edit tables with custom table extensions (`Table`, `TableRow`, `TableCell`, `TableHeader`) already wired into the editor factory.
+- Add syntax-highlighted code blocks using `CodeBlockLowlight` node views inside the editor component.
+- Handle media insertion and transformation through `onFileSelect` and `onDropOrPaste` plus `FileDrop` extension wiring.
+- Use slash commands for block insertion via the `slashcommand(...)` extension + `SlashCommandList` node UI.
+- *Use math block + inline nodes with clickable LaTeX editing menus via `@tiptap/extension-mathematics` hooks.
+- *Generate and render table-of-contents indexes via `@tiptap/extension-table-of-contents` (especially in shadcn editor).
+- Customize toolbar behavior by injecting child command components or consuming `ToolBarCommands` metadata.
+- Persist and restore editor JSON content via `onUpdate` + `editor.getJSON()` pattern shown in examples.
+
+## Detail Files
+
+- `llms-full/use-case-basic-editor-setup.md` — Build the standard persisted editor with toolbar and bubble menu.
+- `llms-full/use-case-custom-media-upload.md` — Wire file select/drop/paste handlers for media URLs.
+- `llms-full/use-case-ui-customization.md` — Choose headless vs shadcn and add custom toolbar commands.
+- `llms-full/capabilities.md` — Non-obvious features (math editing hooks, ToC, slash command wiring, file-drop command override).
+- `llms-full/cookbook.md` — Short copy-paste tasks (toggle edit mode, restore content, add custom command, etc.).
+- `llms-full/antipatterns.md` — Failure modes grounded in source/test behavior and how to avoid them.
+- `llms-full/integrations.md` — Integration patterns with Tiptap content persistence and Svelte app state.
